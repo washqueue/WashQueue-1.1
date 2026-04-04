@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WashQueue | KYK Yurt Çamaşır Planlama</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #090511;
+      --paper: rgba(20, 14, 36, 0.82);
+      --card: rgba(28, 20, 50, 0.88);
+      --line: rgba(167, 134, 255, 0.18);
+      --text: #f3ecff;
+      --muted: #bcaee6;
+      --brand: #a96cff;
+      --brand-dark: #d7c1ff;
+      --accent: #5d4bff;
+      --accent-soft: rgba(93, 75, 255, 0.14);
+      --warn: #ff6b9a;
+      --free: rgba(92, 211, 183, 0.16);
+      --taken: rgba(255, 107, 154, 0.14);
+      --mine: rgba(169, 108, 255, 0.2);
+      --past: rgba(160, 146, 196, 0.12);
+      --shadow: 0 24px 80px rgba(3, 0, 14, 0.44);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 20%, rgba(169, 108, 255, 0.34), transparent 24%),
+        radial-gradient(circle at 85% 14%, rgba(93, 75, 255, 0.28), transparent 22%),
+        radial-gradient(circle at 50% 100%, rgba(255, 107, 154, 0.12), transparent 30%),
+        linear-gradient(135deg, #06030d 0%, #130a26 48%, #1f123d 100%);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(196, 182, 255, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(196, 182, 255, 0.05) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.4), transparent 92%);
+    }
+
+    body::after {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 12% 78%, rgba(169, 108, 255, 0.22) 0 18px, transparent 19px),
+        radial-gradient(circle at 26% 88%, rgba(93, 75, 255, 0.16) 0 12px, transparent 13px),
+        radial-gradient(circle at 78% 82%, rgba(255, 107, 154, 0.14) 0 16px, transparent 17px),
+        radial-gradient(circle at 90% 70%, rgba(169, 108, 255, 0.18) 0 10px, transparent 11px),
+        radial-gradient(circle at 66% 90%, rgba(208, 191, 255, 0.12) 0 22px, transparent 23px);
+      opacity: 0.9;
+      animation: bubblesDrift 16s ease-in-out infinite alternate;
+    }
+
+    .page {
+      width: min(1400px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 32px 0 48px;
+      animation: pageReveal 0.85s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .auth-shell {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .auth-card {
+      width: min(100%, 520px);
+      padding: 28px;
+      animation: floatIn 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .auth-tab {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .auth-tab.active {
+      background: var(--accent);
+      color: #f4fffb;
+      border-color: transparent;
+    }
+
+    .auth-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .auth-note {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 16px;
+      background: rgba(169, 108, 255, 0.1);
+      border: 1px solid rgba(169, 108, 255, 0.18);
+      color: var(--brand-dark);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .auth-error {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(193, 61, 61, 0.12);
+      border: 1px solid rgba(193, 61, 61, 0.18);
+      color: #8a2d2d;
+      display: none;
+    }
+
+    .auth-error.show {
+      display: block;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .panel {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+        var(--paper);
+      border: 1px solid rgba(203, 184, 255, 0.18);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(22px) saturate(130%);
+      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    }
+
+    .panel:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 28px 90px rgba(5, 0, 22, 0.54);
+      border-color: rgba(190, 168, 255, 0.28);
+    }
+
+    .hero-main {
+      padding: 34px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      right: -70px;
+      top: -70px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(169, 108, 255, 0.28), transparent 68%);
+    }
+
+    .hero-main::before {
+      content: "";
+      position: absolute;
+      left: -80px;
+      bottom: -90px;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(93, 75, 255, 0.22), transparent 68%);
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(169, 108, 255, 0.12);
+      color: var(--brand-dark);
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    .brand-lockup {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .brand-badge {
+      width: 58px;
+      height: 58px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(169, 108, 255, 0.28), rgba(93, 75, 255, 0.52));
+      border: 1px solid rgba(227, 214, 255, 0.24);
+      box-shadow: 0 18px 36px rgba(75, 53, 183, 0.32);
+      font-size: 28px;
+    }
+
+    .brand-title {
+      margin: 0;
+      font-size: clamp(34px, 6vw, 62px);
+      line-height: 0.95;
+      letter-spacing: -0.05em;
+      text-shadow: 0 10px 28px rgba(123, 89, 255, 0.2);
+    }
+
+    .brand-title span {
+      background: linear-gradient(135deg, #ffffff 0%, #d8c8ff 50%, #a96cff 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(42px, 7vw, 72px);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-copy {
+      max-width: 700px;
+      margin: 18px 0 0;
+      font-size: 19px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .hero-points {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 14px;
+    }
+
+    .hero-side {
+      padding: 24px;
+      display: grid;
+      gap: 14px;
+      align-content: start;
+    }
+
+    .mini-stat {
+      padding: 18px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mini-stat::after {
+      content: "";
+      position: absolute;
+      inset: auto -30% -55% auto;
+      width: 120px;
+      height: 120px;
+      background: radial-gradient(circle, rgba(169, 108, 255, 0.24), transparent 70%);
+      pointer-events: none;
+    }
+
+    .mini-stat strong {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+    }
+
+    .sidebar {
+      padding: 22px;
+      position: sticky;
+      top: 20px;
+      align-self: start;
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      font-size: 18px;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .controls {
+      display: grid;
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font: inherit;
+    }
+
+    button {
+      border: none;
+      border-radius: 16px;
+      padding: 14px 18px;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.18s ease, background 0.18s ease, opacity 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px) scale(1.01);
+    }
+
+    button:active {
+      transform: translateY(0) scale(0.99);
+    }
+
+    .primary {
+      background: var(--brand);
+      color: #fff7f2;
+      box-shadow: 0 12px 30px rgba(121, 72, 255, 0.34);
+    }
+
+    .primary:hover {
+      background: #bc87ff;
+      box-shadow: 0 16px 36px rgba(121, 72, 255, 0.44);
+    }
+
+    .secondary {
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .secondary:hover {
+      border-color: rgba(190, 168, 255, 0.34);
+      box-shadow: 0 12px 26px rgba(18, 9, 43, 0.4);
+    }
+
+    .quota-box,
+    .legend,
+    .info-box {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: var(--card);
+    }
+
+    .session-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      display: grid;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .session-name {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    .quota-row,
+    .legend-row,
+    .summary-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .quota-row:first-child,
+    .legend-row:first-child,
+    .summary-row:first-child {
+      margin-top: 0;
+    }
+
+    .quota-meter {
+      display: flex;
+      gap: 6px;
+    }
+
+    .quota-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.65);
+    }
+
+    .quota-dot.used {
+      background: var(--brand);
+      border-color: transparent;
+    }
+
+    .legend-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .legend-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1px solid rgba(52, 37, 21, 0.12);
+    }
+
+    .content {
+      display: grid;
+      gap: 20px;
+    }
+
+    .toolbar {
+      padding: 22px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .toggle-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .toggle {
+      padding: 12px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .toggle::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.16) 50%, transparent 100%);
+      transform: translateX(-140%);
+      transition: transform 0.45s ease;
+    }
+
+    .toggle:hover::after {
+      transform: translateX(140%);
+    }
+
+    .toggle.active {
+      background: var(--accent);
+      color: #f4fffb;
+      border-color: transparent;
+      box-shadow: 0 14px 30px rgba(93, 75, 255, 0.34);
+    }
+
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .summary-card {
+      padding: 18px;
+      border-radius: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .machine-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+    }
+
+    .machine-card {
+      overflow: hidden;
+      animation: floatIn 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .machine-head {
+      padding: 18px 20px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .machine-name {
+      font-size: 22px;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .machine-type {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .slots {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      max-height: 640px;
+      overflow: auto;
+    }
+
+    .slot {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(52, 37, 21, 0.08);
+      display: grid;
+      gap: 10px;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .slot:hover {
+      transform: translateY(-2px);
+      border-color: rgba(201, 182, 255, 0.28);
+      box-shadow: 0 14px 26px rgba(10, 4, 28, 0.24);
+    }
+
+    .slot.free { background: var(--free); }
+    .slot.taken { background: var(--taken); }
+    .slot.mine { background: var(--mine); }
+    .slot.past { background: var(--past); opacity: 0.7; }
+
+    .slot-top,
+    .slot-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .slot-time {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .slot-badge {
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      background: rgba(255, 255, 255, 0.7);
+    }
+
+    @keyframes pageReveal {
+      from {
+        opacity: 0;
+        transform: translateY(18px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes floatIn {
+      from {
+        opacity: 0;
+        transform: translateY(26px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes bubblesDrift {
+      from {
+        transform: translateY(0) translateX(0) scale(1);
+      }
+      to {
+        transform: translateY(-24px) translateX(10px) scale(1.04);
+      }
+    }
+
+    .slot-desc {
+      color: var(--muted);
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    .slot button {
+      padding: 10px 14px;
+      border-radius: 14px;
+    }
+
+    .notice {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(193, 61, 61, 0.12);
+      border: 1px solid rgba(193, 61, 61, 0.18);
+      color: #8a2d2d;
+      display: none;
+    }
+
+    .notice.show {
+      display: block;
+    }
+
+    .activity-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .activity-item {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 16px;
+      background: rgba(255, 255, 255, 0.07);
+    }
+
+    .activity-item strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    @media (max-width: 1100px) {
+      .hero,
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sidebar {
+        position: static;
+      }
+
+      .summary-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        width: min(100% - 18px, 100%);
+      }
+
+      .hero-main,
+      .hero-side,
+      .sidebar,
+      .toolbar {
+        padding: 20px;
+      }
+
+      .summary-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .machine-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .slot-top,
+      .slot-bottom {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <section id="authScreen" class="auth-shell">
+    <div class="panel auth-card">
+      <div class="eyebrow">🌙 Öğrenci Girişi</div>
+      <div class="brand-lockup">
+        <div class="brand-badge">🫧</div>
+        <h1 class="brand-title"><span>WashQueue</span></h1>
+      </div>
+      <p class="hero-copy" style="font-size:17px; margin-top:14px;">
+        ✨ Öğrenciler ad soyad ve şifre ile giriş yapar, ardından bloklardaki uygun randevuları alır.
+      </p>
+
+      <div class="auth-tabs">
+        <button id="loginTab" type="button" class="auth-tab active">Giriş Yap</button>
+        <button id="registerTab" type="button" class="auth-tab">Kayıt Ol</button>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <label>
+          Ad Soyad
+          <input id="authName" type="text" placeholder="Ad ve soyadını gir" maxlength="40" required />
+        </label>
+        <label>
+          Şifre
+          <input id="authPassword" type="password" placeholder="En az 4 karakter" minlength="4" required />
+        </label>
+        <button id="authSubmit" class="primary" type="submit">Giriş Yap</button>
+      </form>
+
+      <div id="authError" class="auth-error"></div>
+      <div class="auth-note">
+        🫧 Bu sürümde kayıt ve oturum açma ekranı hazır. Gerçekten tüm öğrencilerin ortak kullandığı bir sistem için
+        bunun bir veritabanı servisine bağlanıp yayına alınması gerekir.
+      </div>
+    </div>
+  </section>
+
+  <div id="appShell" class="page hidden">
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="eyebrow">🫧 KYK Ortak Makine Takibi</div>
+        <div class="brand-lockup">
+          <div class="brand-badge">🧺</div>
+          <h1 class="brand-title"><span>WashQueue</span></h1>
+        </div>
+        <p class="hero-copy">
+          💜 B, C ve D bloklarındaki çamaşır ve kurutma makineleri için ortak randevu ekranı.
+          Herkes açık takvimi görür, uygun seansı alır ve haftalık hakkını adil şekilde kullanır.
+        </p>
+        <div class="hero-points">
+          <div class="pill">🧺 3 blok</div>
+          <div class="pill">🫧 Her blokta 10 çamaşır + 10 kurutma</div>
+          <div class="pill">⏰ 10:00 - 22:00 arası seanslar</div>
+          <div class="pill">📌 Haftalık kişi başı 3 yıkama + 3 kurutma</div>
+        </div>
+      </div>
+      <aside class="panel hero-side">
+        <div class="mini-stat">
+          <strong>60 🪻</strong>
+          Toplam makine sayısı
+        </div>
+        <div class="mini-stat">
+          <strong>30 dk / 60 dk ⚡</strong>
+          Çamaşır için hızlı ve normal seçenekler
+        </div>
+        <div class="mini-stat">
+          <strong>120 dk 🔥</strong>
+          Kurutma seansı süresi
+        </div>
+      </aside>
+    </section>
+
+    <div class="layout">
+      <aside class="panel sidebar">
+        <h2 class="section-title">Randevu Bilgileri</h2>
+        <div class="controls">
+          <div class="session-card">
+            <div class="muted">👤 Aktif öğrenci</div>
+            <h3 id="sessionName" class="session-name"></h3>
+            <button id="logoutBtn" class="secondary" type="button">Çıkış Yap</button>
+          </div>
+          <label>
+            Tarih Seç
+            <input id="selectedDate" type="date" />
+          </label>
+          <button id="clearMine" class="secondary" type="button">Kendi Randevularımı Temizle</button>
+        </div>
+
+        <div class="quota-box">
+          <h3 class="section-title">Haftalık Haklar</h3>
+          <div class="quota-row">
+            <span>Çamaşır</span>
+            <div id="washQuota" class="quota-meter"></div>
+          </div>
+          <div class="quota-row">
+            <span>Kurutma</span>
+            <div id="dryQuota" class="quota-meter"></div>
+          </div>
+          <p class="muted" id="quotaText" style="margin:12px 0 0;font-size:13px;"></p>
+        </div>
+
+        <div class="legend">
+          <h3 class="section-title">Durumlar</h3>
+          <div class="legend-row">
+            <span class="legend-chip"><span class="legend-swatch" style="background: var(--free);"></span>🟢 Müsait</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-chip"><span class="legend-swatch" style="background: var(--mine);"></span>🟣 Senin randevun</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-chip"><span class="legend-swatch" style="background: var(--taken);"></span>🔒 Başkası tarafından alınmış</span>
+          </div>
+          <div class="legend-row">
+            <span class="legend-chip"><span class="legend-swatch" style="background: var(--past);"></span>🌘 Geçmiş seans</span>
+          </div>
+        </div>
+
+        <div class="info-box">
+          <h3 class="section-title">Kurallar</h3>
+          <p class="muted" style="margin:0; line-height:1.7;">
+            Çamaşır makinelerinde hızlı yıkama 30 dakika, normal yıkama 60 dakika sürer.
+            Kurutma makineleri 2 saatlik seanslarla çalışır. Bir kullanıcı 7 günlük dönemde en fazla
+            3 çamaşır ve 3 kurutma rezervasyonu yapabilir.
+          </p>
+        </div>
+      </aside>
+
+      <main class="content">
+        <section class="panel toolbar">
+          <div>
+            <h2 class="section-title" style="margin-bottom:6px;">Açık Takvim</h2>
+            <div class="muted">Filtreleri değiştir, makineyi seç ve uygun seansı hemen rezerve et.</div>
+          </div>
+
+          <div class="toggle-row" id="blockTabs"></div>
+          <div class="toggle-row" id="typeTabs"></div>
+
+          <div class="summary-strip">
+            <div class="summary-card">
+              <strong id="summaryMachines">10</strong>
+              Görünen makine
+            </div>
+            <div class="summary-card">
+              <strong id="summarySlots">0</strong>
+              Toplam seans
+            </div>
+            <div class="summary-card">
+              <strong id="summaryFree">0</strong>
+              Müsait seans
+            </div>
+            <div class="summary-card">
+              <strong id="summaryTaken">0</strong>
+              Dolu seans
+            </div>
+          </div>
+
+          <div id="notice" class="notice"></div>
+        </section>
+
+        <section id="machineGrid" class="machine-grid"></section>
+
+        <section class="panel toolbar">
+          <div>
+            <h2 class="section-title" style="margin-bottom:6px;">Benim Randevularım</h2>
+            <div class="muted">Seçili kullanıcının tüm aktif rezervasyonları burada listelenir.</div>
+          </div>
+          <div id="activityList" class="activity-list"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    const SETTINGS_KEY = "washqueue-user-settings-v1";
+    const SESSION_KEY = "washqueue-session-v1";
+    const SUPABASE_URL = "https://nnbberumcgcyrtgbebgd.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uYmJlcnVtY2djeXJ0Z2JlYmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDE2ODcsImV4cCI6MjA5MDg3NzY4N30.DkEYuBdL3Kv2_vXz2l1RbRUPwq3kzRl1yICImB9aPiE";
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const BLOCKS = ["B Blok", "C Blok", "D Blok"];
+    const TYPES = {
+      wash: {
+        key: "wash",
+        title: "Çamaşır Makineleri",
+        short: "Çamaşır",
+        emoji: "🧺",
+        machinePrefix: "CM",
+        sessions: createTimeSlots("10:00", "22:00", 30),
+        options: [
+          { value: "quick", label: "Hızlı Yıkama", duration: 30 },
+          { value: "normal", label: "Normal Yıkama", duration: 60 }
+        ]
+      },
+      dry: {
+        key: "dry",
+        title: "Kurutma Makineleri",
+        short: "Kurutma",
+        emoji: "🫧",
+        machinePrefix: "KM",
+        sessions: createTimeSlots("10:00", "20:00", 120),
+        options: [{ value: "dry", label: "Kurutma", duration: 120 }]
+      }
+    };
+
+    const state = {
+      block: BLOCKS[0],
+      type: "wash",
+      reservations: [],
+      settings: loadSettings(),
+      session: null,
+      profile: null,
+      authMode: "login",
+      loading: false
+    };
+
+    const els = {
+      authScreen: document.getElementById("authScreen"),
+      appShell: document.getElementById("appShell"),
+      loginTab: document.getElementById("loginTab"),
+      registerTab: document.getElementById("registerTab"),
+      authForm: document.getElementById("authForm"),
+      authName: document.getElementById("authName"),
+      authPassword: document.getElementById("authPassword"),
+      authSubmit: document.getElementById("authSubmit"),
+      authError: document.getElementById("authError"),
+      sessionName: document.getElementById("sessionName"),
+      logoutBtn: document.getElementById("logoutBtn"),
+      selectedDate: document.getElementById("selectedDate"),
+      blockTabs: document.getElementById("blockTabs"),
+      typeTabs: document.getElementById("typeTabs"),
+      machineGrid: document.getElementById("machineGrid"),
+      notice: document.getElementById("notice"),
+      washQuota: document.getElementById("washQuota"),
+      dryQuota: document.getElementById("dryQuota"),
+      quotaText: document.getElementById("quotaText"),
+      clearMine: document.getElementById("clearMine"),
+      summaryMachines: document.getElementById("summaryMachines"),
+      summarySlots: document.getElementById("summarySlots"),
+      summaryFree: document.getElementById("summaryFree"),
+      summaryTaken: document.getElementById("summaryTaken"),
+      activityList: document.getElementById("activityList")
+    };
+
+    init();
+
+    async function init() {
+      const today = new Date();
+      const todayIso = toIsoDate(today);
+      els.selectedDate.value = state.settings.selectedDate || todayIso;
+      els.selectedDate.min = todayIso;
+
+      renderBlockTabs();
+      renderTypeTabs();
+      bindEvents();
+      restoreSession();
+      await fetchReservations();
+      syncAuthView();
+      render();
+    }
+
+    function bindEvents() {
+      els.loginTab.addEventListener("click", () => setAuthMode("login"));
+      els.registerTab.addEventListener("click", () => setAuthMode("register"));
+
+      els.authForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (state.authMode === "login") {
+          await loginUser();
+        } else {
+          await registerUser();
+        }
+      });
+
+      els.logoutBtn.addEventListener("click", async () => {
+        state.session = null;
+        state.profile = null;
+        persistSession();
+        syncAuthView();
+        render();
+      });
+
+      els.selectedDate.addEventListener("change", () => {
+        state.settings.selectedDate = els.selectedDate.value;
+        saveSettings();
+        render();
+      });
+
+      els.clearMine.addEventListener("click", () => {
+        const currentUser = getCurrentUser();
+        if (!currentUser) {
+          showNotice("Önce ad soyad girmen gerekiyor.");
+          return;
+        }
+
+        const before = state.reservations.length;
+        state.reservations = state.reservations.filter((item) => item.user !== currentUser);
+        if (before === state.reservations.length) {
+          showNotice("Silinecek bir randevu bulunamadı.");
+          return;
+        }
+
+        syncReservations();
+        showNotice("Sana ait tüm randevular temizlendi.", false);
+        render();
+      });
+    }
+
+    function setAuthMode(mode) {
+      state.authMode = mode;
+      els.loginTab.classList.toggle("active", mode === "login");
+      els.registerTab.classList.toggle("active", mode === "register");
+      els.authSubmit.textContent = mode === "login" ? "Giriş Yap" : "Kayıt Ol";
+      els.authError.className = "auth-error";
+      els.authError.textContent = "";
+    }
+
+    function syncAuthView() {
+      const loggedIn = Boolean(state.session && state.session.name);
+      els.authScreen.classList.toggle("hidden", loggedIn);
+      els.appShell.classList.toggle("hidden", !loggedIn);
+      els.sessionName.textContent = loggedIn ? state.session.name : "";
+
+      if (loggedIn) {
+        state.settings.lastUser = state.session.name;
+        saveSettings();
+      } else {
+        els.authName.value = state.settings.lastUser || "";
+        els.authPassword.value = "";
+        setAuthMode(state.authMode);
+      }
+    }
+
+    function restoreSession() {
+      try {
+        state.session = JSON.parse(localStorage.getItem(SESSION_KEY)) || null;
+        state.profile = state.session;
+      } catch {
+        state.session = null;
+        state.profile = null;
+      }
+    }
+
+    async function registerUser() {
+      const name = normalizeName(els.authName.value);
+      const password = els.authPassword.value.trim();
+
+      if (!name || password.length < 4) {
+        showAuthError("Kayıt için isim soyisim ve en az 4 karakter şifre gir.");
+        return;
+      }
+
+      const fullNameLower = name.toLocaleLowerCase("tr-TR");
+      const { data: existingUser, error: existingError } = await supabaseClient
+        .from("app_users")
+        .select("id")
+        .eq("full_name_lower", fullNameLower)
+        .maybeSingle();
+
+      if (existingError) {
+        showAuthError(existingError.message);
+        return;
+      }
+
+      if (existingUser) {
+        showAuthError("Bu ad soyad ile kayıtlı bir kullanıcı zaten var.");
+        return;
+      }
+
+      const salt = createSalt();
+      const passwordHash = await hashPassword(password, salt);
+      const { data, error } = await supabaseClient
+        .from("app_users")
+        .insert({
+          full_name: name,
+          full_name_lower: fullNameLower,
+          password_salt: salt,
+          password_hash: passwordHash
+        })
+        .select("id, full_name")
+        .single();
+
+      if (error) {
+        showAuthError(error.message);
+        return;
+      }
+
+      state.session = {
+        id: data.id,
+        name: data.full_name
+      };
+      state.profile = state.session;
+      persistSession();
+      await fetchReservations();
+      syncAuthView();
+      showNotice("Kayıt tamamlandı, oturum açıldı.", false);
+      render();
+    }
+
+    async function loginUser() {
+      const name = normalizeName(els.authName.value);
+      const password = els.authPassword.value.trim();
+      if (!name || !password) {
+        showAuthError("Giriş için isim soyisim ve şifre gir.");
+        return;
+      }
+
+      const fullNameLower = name.toLocaleLowerCase("tr-TR");
+      const { data, error } = await supabaseClient
+        .from("app_users")
+        .select("id, full_name, password_salt, password_hash")
+        .eq("full_name_lower", fullNameLower)
+        .maybeSingle();
+
+      if (error) {
+        showAuthError(error.message);
+        return;
+      }
+
+      if (!data) {
+        showAuthError("Bu ad soyad ile kayıt bulunamadı.");
+        return;
+      }
+
+      const computedHash = await hashPassword(password, data.password_salt);
+      if (computedHash !== data.password_hash) {
+        showAuthError("Şifre hatalı.");
+        return;
+      }
+
+      state.session = {
+        id: data.id,
+        name: data.full_name
+      };
+      state.profile = state.session;
+      persistSession();
+      await fetchReservations();
+      syncAuthView();
+      showNotice("Giriş başarılı.", false);
+      render();
+    }
+
+    function showAuthError(message) {
+      els.authError.textContent = message;
+      els.authError.className = "auth-error show";
+    }
+
+    function renderBlockTabs() {
+      els.blockTabs.innerHTML = "";
+      BLOCKS.forEach((block) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "toggle" + (state.block === block ? " active" : "");
+        button.textContent = block;
+        button.addEventListener("click", () => {
+          state.block = block;
+          renderBlockTabs();
+          render();
+        });
+        els.blockTabs.appendChild(button);
+      });
+    }
+
+    function renderTypeTabs() {
+      els.typeTabs.innerHTML = "";
+      Object.values(TYPES).forEach((type) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "toggle" + (state.type === type.key ? " active" : "");
+        button.textContent = `${type.emoji} ${type.title}`;
+        button.addEventListener("click", () => {
+          state.type = type.key;
+          renderTypeTabs();
+          render();
+        });
+        els.typeTabs.appendChild(button);
+      });
+    }
+
+    function render() {
+      renderQuotas();
+      renderMachines();
+      renderActivity();
+    }
+
+    function renderQuotas() {
+      const currentUser = getCurrentUser();
+      const date = getSelectedDate();
+
+      const washUsed = currentUser ? countWeeklyReservations(currentUser, "wash", date) : 0;
+      const dryUsed = currentUser ? countWeeklyReservations(currentUser, "dry", date) : 0;
+
+      els.washQuota.innerHTML = createQuotaDots(washUsed);
+      els.dryQuota.innerHTML = createQuotaDots(dryUsed);
+      els.quotaText.textContent = currentUser
+        ? `${formatWeekRange(date)} haftasında ${currentUser} için hak kullanımı gösteriliyor.`
+        : "Haftalık hakları görebilmek için ad soyad gir.";
+    }
+
+    function renderMachines() {
+      const selectedDate = els.selectedDate.value;
+      const type = TYPES[state.type];
+      const machines = Array.from({ length: 10 }, (_, i) => ({
+        id: `${state.block}-${type.key}-${i + 1}`,
+        name: `${type.machinePrefix}-${String(i + 1).padStart(2, "0")}`
+      }));
+
+      let freeCount = 0;
+      let takenCount = 0;
+
+      els.machineGrid.innerHTML = "";
+
+      machines.forEach((machine) => {
+        const card = document.createElement("article");
+        card.className = "panel machine-card";
+
+        const head = document.createElement("div");
+        head.className = "machine-head";
+        head.innerHTML = `
+          <div>
+            <h3 class="machine-name"><span>${type.emoji}</span><span>${machine.name}</span></h3>
+            <div class="machine-type">${state.block} • ${type.emoji} ${type.short}</div>
+          </div>
+          <div class="slot-badge">${type.emoji} ${type.sessions.length} seans</div>
+        `;
+        card.appendChild(head);
+
+        const slotWrap = document.createElement("div");
+        slotWrap.className = "slots";
+
+        type.sessions.forEach((slotTime) => {
+          const reservation = findReservation(machine.id, selectedDate, slotTime);
+          const slot = document.createElement("div");
+          const status = getSlotStatus(reservation, selectedDate, slotTime);
+          slot.className = `slot ${status}`;
+
+          if (status === "free") freeCount += 1;
+          if (status === "taken" || status === "mine") takenCount += 1;
+
+          const top = document.createElement("div");
+          top.className = "slot-top";
+          top.innerHTML = `
+            <div class="slot-time">${slotTime}</div>
+            <div class="slot-badge">${reservation ? reservation.optionLabel : "Müsait"}</div>
+          `;
+
+          const desc = document.createElement("div");
+          desc.className = "slot-desc";
+          desc.textContent = buildSlotDescription(reservation, status);
+
+          const bottom = document.createElement("div");
+          bottom.className = "slot-bottom";
+
+          if (status === "free") {
+            const select = document.createElement("select");
+            TYPES[state.type].options.forEach((option) => {
+              const optionEl = document.createElement("option");
+              optionEl.value = option.value;
+              optionEl.textContent = `${option.label} (${option.duration} dk)`;
+              select.appendChild(optionEl);
+            });
+
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "primary";
+            button.textContent = "Randevu Al";
+            button.addEventListener("click", () => {
+              createReservation(machine, slotTime, select.value);
+            });
+
+            bottom.appendChild(select);
+            bottom.appendChild(button);
+          } else if (status === "mine") {
+            const cancelButton = document.createElement("button");
+            cancelButton.type = "button";
+            cancelButton.className = "secondary";
+            cancelButton.textContent = "İptal Et";
+            cancelButton.addEventListener("click", () => cancelReservation(reservation.id));
+            bottom.appendChild(cancelButton);
+          } else {
+            const info = document.createElement("div");
+            info.className = "muted";
+            info.textContent = status === "past" ? "Bu seans geçmiş." : "Bu seans şu anda dolu.";
+            bottom.appendChild(info);
+          }
+
+          slot.append(top, desc, bottom);
+          slotWrap.appendChild(slot);
+        });
+
+        card.appendChild(slotWrap);
+        els.machineGrid.appendChild(card);
+      });
+
+      els.summaryMachines.textContent = String(machines.length);
+      els.summarySlots.textContent = String(type.sessions.length * machines.length);
+      els.summaryFree.textContent = String(freeCount);
+      els.summaryTaken.textContent = String(takenCount);
+    }
+
+    function renderActivity() {
+      const currentUser = getCurrentUser();
+      els.activityList.innerHTML = "";
+
+      if (!currentUser) {
+        els.activityList.innerHTML = '<div class="activity-item">Ad soyad girildiğinde aktif rezervasyonlar burada listelenir.</div>';
+        return;
+      }
+
+      const items = state.reservations
+        .filter((item) => item.user === currentUser)
+        .sort((a, b) => `${a.date} ${a.start}`.localeCompare(`${b.date} ${b.start}`));
+
+      if (!items.length) {
+        els.activityList.innerHTML = '<div class="activity-item">Bu kullanıcı için kayıtlı rezervasyon yok.</div>';
+        return;
+      }
+
+      items.forEach((item) => {
+        const block = item.machineId.split("-")[0];
+        const box = document.createElement("div");
+        box.className = "activity-item";
+        box.innerHTML = `
+          <strong>${item.machineName} • ${item.type === "wash" ? "Çamaşır" : "Kurutma"}</strong>
+          <div class="muted">${formatDateLabel(item.date)} • ${block} • ${item.start} - ${item.end}</div>
+          <div style="margin-top:8px;">Seçilen program: ${item.optionLabel}</div>
+        `;
+        els.activityList.appendChild(box);
+      });
+    }
+
+    async function createReservation(machine, slotTime, optionValue) {
+      const currentUser = getCurrentUser();
+      if (!currentUser) {
+        showNotice("Randevu almadan önce ad soyad gir.");
+        return;
+      }
+
+      const date = getSelectedDate();
+      if (isPastSlot(date, slotTime)) {
+        showNotice("Geçmiş bir seans için randevu oluşturulamaz.");
+        return;
+      }
+
+      if (findReservation(machine.id, els.selectedDate.value, slotTime)) {
+        showNotice("Bu seans başka biri tarafından alınmış.");
+        render();
+        return;
+      }
+
+      if (countWeeklyReservations(currentUser, state.type, date) >= 3) {
+        showNotice(`${TYPES[state.type].short} için haftalık 3 randevu limitine ulaştın.`);
+        return;
+      }
+
+      const selectedOption = TYPES[state.type].options.find((item) => item.value === optionValue);
+      const reservation = {
+        user_id: state.session.id,
+        user: currentUser,
+        block: state.block,
+        type: state.type,
+        machineId: machine.id,
+        machineName: machine.name,
+        date: els.selectedDate.value,
+        start: slotTime,
+        end: addMinutes(slotTime, selectedOption.duration),
+        optionValue: selectedOption.value,
+        optionLabel: selectedOption.label,
+        createdAt: new Date().toISOString()
+      };
+
+      const { error } = await supabaseClient.from("reservations").insert({
+        user_id: reservation.user_id,
+        user_name: reservation.user,
+        block: reservation.block,
+        type: reservation.type,
+        machine_id: reservation.machineId,
+        machine_name: reservation.machineName,
+        reservation_date: reservation.date,
+        start_time: reservation.start,
+        end_time: reservation.end,
+        option_value: reservation.optionValue,
+        option_label: reservation.optionLabel
+      });
+
+      if (error) {
+        showNotice(`Rezervasyon kaydedilemedi: ${error.message}`);
+        return;
+      }
+
+      await fetchReservations();
+      showNotice(`${machine.name} için ${slotTime} seansı ayrıldı.`, false);
+      render();
+    }
+
+    async function cancelReservation(reservationId) {
+      const { error } = await supabaseClient.from("reservations").delete().eq("id", reservationId);
+      if (error) {
+        showNotice(`Randevu iptal edilemedi: ${error.message}`);
+        return;
+      }
+      await fetchReservations();
+      showNotice("Randevu iptal edildi.", false);
+      render();
+    }
+
+    function buildSlotDescription(reservation, status) {
+      if (status === "free") return "Bu seans boş. Program seçip hemen rezerve edebilirsin.";
+      if (status === "mine") return `Bu seans sana ait. Program: ${reservation.optionLabel}.`;
+      if (status === "taken") return `${reservation.user} tarafından alınmış.`;
+      return "Seans saati geçtiği için kapalı.";
+    }
+
+    function getSlotStatus(reservation, date, slotTime) {
+      if (isPastSlot(date, slotTime)) return "past";
+      if (!reservation) return "free";
+      return reservation.user === getCurrentUser() ? "mine" : "taken";
+    }
+
+    function findReservation(machineId, date, slotTime) {
+      return state.reservations.find((item) =>
+        item.machineId === machineId &&
+        item.date === date &&
+        item.start === slotTime
+      );
+    }
+
+    function getCurrentUser() {
+      return state.session?.name || "";
+    }
+
+    function getSelectedDate() {
+      return new Date(`${els.selectedDate.value}T12:00:00`);
+    }
+
+    function countWeeklyReservations(user, type, date) {
+      const { start, end } = getWeekBounds(date);
+      return state.reservations.filter((item) => {
+        const itemDate = new Date(`${item.date}T12:00:00`);
+        return item.user === user &&
+          item.type === type &&
+          itemDate >= start &&
+          itemDate <= end;
+      }).length;
+    }
+
+    function createQuotaDots(used) {
+      return Array.from({ length: 3 }, (_, index) =>
+        `<span class="quota-dot${index < used ? " used" : ""}"></span>`
+      ).join("");
+    }
+
+    function showNotice(message, isError = true) {
+      els.notice.textContent = message;
+      els.notice.className = "notice show";
+      els.notice.style.background = isError ? "rgba(193, 61, 61, 0.12)" : "rgba(47, 111, 98, 0.12)";
+      els.notice.style.borderColor = isError ? "rgba(193, 61, 61, 0.18)" : "rgba(47, 111, 98, 0.18)";
+      els.notice.style.color = isError ? "#8a2d2d" : "#205348";
+    }
+
+    async function fetchReservations() {
+      const { data, error } = await supabaseClient
+        .from("reservations")
+        .select("*")
+        .order("reservation_date", { ascending: true })
+        .order("start_time", { ascending: true });
+
+      if (error) {
+        showNotice(`Rezervasyonlar okunamadı: ${error.message}`);
+        state.reservations = [];
+        return;
+      }
+
+      state.reservations = (data || []).map((item) => ({
+        id: item.id,
+        user_id: item.user_id,
+        user: item.user_name,
+        block: item.block,
+        type: item.type,
+        machineId: item.machine_id,
+        machineName: item.machine_name,
+        date: item.reservation_date,
+        start: item.start_time,
+        end: item.end_time,
+        optionValue: item.option_value,
+        optionLabel: item.option_label,
+        createdAt: item.created_at
+      }));
+    }
+
+    function syncReservations() {
+      fetchReservations().then(() => render());
+    }
+
+    function loadSettings() {
+      try {
+        return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveSettings() {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(state.settings));
+    }
+
+    function normalizeName(value) {
+      return value.replace(/\s+/g, " ").trim();
+    }
+
+    function persistSession() {
+      if (!state.session) {
+        localStorage.removeItem(SESSION_KEY);
+        return;
+      }
+      localStorage.setItem(SESSION_KEY, JSON.stringify(state.session));
+    }
+
+    function createSalt() {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      return bytesToBase64(bytes);
+    }
+
+    async function hashPassword(password, saltBase64) {
+      const encoder = new TextEncoder();
+      const passwordKey = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        "PBKDF2",
+        false,
+        ["deriveBits"]
+      );
+      const bits = await crypto.subtle.deriveBits(
+        {
+          name: "PBKDF2",
+          salt: base64ToBytes(saltBase64),
+          iterations: 120000,
+          hash: "SHA-256"
+        },
+        passwordKey,
+        256
+      );
+      return bytesToBase64(new Uint8Array(bits));
+    }
+
+    function bytesToBase64(bytes) {
+      let binary = "";
+      bytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      return btoa(binary);
+    }
+
+    function base64ToBytes(base64) {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes;
+    }
+
+    function createTimeSlots(start, end, step) {
+      const times = [];
+      let current = toMinutes(start);
+      const finish = toMinutes(end);
+      while (current < finish) {
+        times.push(fromMinutes(current));
+        current += step;
+      }
+      return times;
+    }
+
+    function addMinutes(time, amount) {
+      return fromMinutes(toMinutes(time) + amount);
+    }
+
+    function toMinutes(time) {
+      const [hour, minute] = time.split(":").map(Number);
+      return hour * 60 + minute;
+    }
+
+    function fromMinutes(total) {
+      const safeTotal = Math.max(0, total);
+      const hours = String(Math.floor(safeTotal / 60)).padStart(2, "0");
+      const minutes = String(safeTotal % 60).padStart(2, "0");
+      return `${hours}:${minutes}`;
+    }
+
+    function toIsoDate(date) {
+      const offset = date.getTimezoneOffset();
+      const local = new Date(date.getTime() - offset * 60000);
+      return local.toISOString().slice(0, 10);
+    }
+
+    function formatDateLabel(iso) {
+      return new Date(`${iso}T12:00:00`).toLocaleDateString("tr-TR", {
+        day: "numeric",
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function getWeekBounds(date) {
+      const start = new Date(date);
+      const day = start.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      start.setDate(start.getDate() + diff);
+      start.setHours(0, 0, 0, 0);
+
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6);
+      end.setHours(23, 59, 59, 999);
+      return { start, end };
+    }
+
+    function formatWeekRange(date) {
+      const { start, end } = getWeekBounds(date);
+      const formatter = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short" });
+      return `${formatter.format(start)} - ${formatter.format(end)}`;
+    }
+
+    function isPastSlot(dateValue, slotTime) {
+      const dateIso = typeof dateValue === "string" ? dateValue : toIsoDate(dateValue);
+      const selected = new Date(`${dateIso}T${slotTime}:00`);
+      return selected.getTime() < Date.now();
+    }
+  </script>
+</body>
+</html>
+
