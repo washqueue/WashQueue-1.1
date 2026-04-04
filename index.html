@@ -1257,8 +1257,11 @@
 
         type.sessions.forEach((slotTime) => {
           const reservation = findReservation(machine.id, selectedDate, slotTime);
+          const overlapReservation = findOverlappingReservation(machine.id, selectedDate, slotTime);
+          const activeReservation = reservation || overlapReservation;
+          const availableOptions = getAvailableOptions(machine.id, selectedDate, slotTime, type.options);
           const slot = document.createElement("div");
-          const status = getSlotStatus(reservation, selectedDate, slotTime);
+          const status = getSlotStatus(activeReservation, selectedDate, slotTime, availableOptions.length);
           slot.className = `slot ${status}`;
 
           if (status === "free") freeCount += 1;
@@ -1268,19 +1271,19 @@
           top.className = "slot-top";
           top.innerHTML = `
             <div class="slot-time">${slotTime}</div>
-            <div class="slot-badge">${reservation ? reservation.optionLabel : "Müsait"}</div>
+            <div class="slot-badge">${activeReservation ? activeReservation.optionLabel : "Müsait"}</div>
           `;
 
           const desc = document.createElement("div");
           desc.className = "slot-desc";
-          desc.textContent = buildSlotDescription(reservation, status);
+          desc.textContent = buildSlotDescription(activeReservation, status, availableOptions.length);
 
           const bottom = document.createElement("div");
           bottom.className = "slot-bottom";
 
           if (status === "free") {
             const select = document.createElement("select");
-            TYPES[state.type].options.forEach((option) => {
+            availableOptions.forEach((option) => {
               const optionEl = document.createElement("option");
               optionEl.value = option.value;
               optionEl.textContent = `${option.label} (${option.duration} dk)`;
@@ -1302,7 +1305,7 @@
             cancelButton.type = "button";
             cancelButton.className = "secondary";
             cancelButton.textContent = "İptal Et";
-            cancelButton.addEventListener("click", () => cancelReservation(reservation.id));
+            cancelButton.addEventListener("click", () => cancelReservation(activeReservation.id));
             bottom.appendChild(cancelButton);
           } else {
             const info = document.createElement("div");
@@ -1369,8 +1372,10 @@
         return;
       }
 
-      if (findReservation(machine.id, els.selectedDate.value, slotTime)) {
-        showNotice("Bu seans başka biri tarafından alınmış.");
+      const selectedOption = TYPES[state.type].options.find((item) => item.value === optionValue);
+
+      if (findConflictingReservation(machine.id, els.selectedDate.value, slotTime, addMinutes(slotTime, selectedOption.duration))) {
+        showNotice("Bu makine seçtiğin saat aralığında zaten dolu.");
         render();
         return;
       }
@@ -1379,8 +1384,6 @@
         showNotice(`${TYPES[state.type].short} için haftalık 3 randevu limitine ulaştın.`);
         return;
       }
-
-      const selectedOption = TYPES[state.type].options.find((item) => item.value === optionValue);
       const reservation = {
         user_id: state.session.id,
         user: currentUser,
@@ -1431,16 +1434,21 @@
       render();
     }
 
-    function buildSlotDescription(reservation, status) {
-      if (status === "free") return "Bu seans boş. Program seçip hemen rezerve edebilirsin.";
+    function buildSlotDescription(reservation, status, availableOptionCount = 0) {
+      if (status === "free") {
+        if (availableOptionCount === 1) return "Bu seans kısmen uygun. Sadece çakışmayan program seçilebilir.";
+        return "Bu seans boş. Program seçip hemen rezerve edebilirsin.";
+      }
       if (status === "mine") return `Bu seans sana ait. Program: ${reservation.optionLabel}.`;
-      if (status === "taken") return `${reservation.user} tarafından alınmış.`;
+      if (status === "taken" && reservation) return `${reservation.user} tarafından alınmış.`;
+      if (status === "taken") return "Bu makine çakışan süre nedeniyle şu anda kullanılamaz.";
       return "Seans saati geçtiği için kapalı.";
     }
 
-    function getSlotStatus(reservation, date, slotTime) {
+    function getSlotStatus(reservation, date, slotTime, availableOptionCount = 0) {
       if (isPastSlot(date, slotTime)) return "past";
-      if (!reservation) return "free";
+      if (!reservation && availableOptionCount > 0) return "free";
+      if (!reservation) return "taken";
       return reservation.user === getCurrentUser() ? "mine" : "taken";
     }
 
@@ -1449,6 +1457,31 @@
         item.machineId === machineId &&
         item.date === date &&
         item.start === slotTime
+      );
+    }
+
+    function findOverlappingReservation(machineId, date, slotTime) {
+      const slotStart = toMinutes(slotTime);
+      return state.reservations.find((item) =>
+        item.machineId === machineId &&
+        item.date === date &&
+        toMinutes(item.start) <= slotStart &&
+        slotStart < toMinutes(item.end)
+      );
+    }
+
+    function findConflictingReservation(machineId, date, startTime, endTime) {
+      return state.reservations.find((item) =>
+        item.machineId === machineId &&
+        item.date === date &&
+        hasTimeOverlap(startTime, endTime, item.start, item.end)
+      );
+    }
+
+    function getAvailableOptions(machineId, date, slotTime, options) {
+      if (isPastSlot(date, slotTime)) return [];
+      return options.filter((option) =>
+        !findConflictingReservation(machineId, date, slotTime, addMinutes(slotTime, option.duration))
       );
     }
 
@@ -1601,6 +1634,10 @@
 
     function addMinutes(time, amount) {
       return fromMinutes(toMinutes(time) + amount);
+    }
+
+    function hasTimeOverlap(startA, endA, startB, endB) {
+      return toMinutes(startA) < toMinutes(endB) && toMinutes(endA) > toMinutes(startB);
     }
 
     function toMinutes(time) {
