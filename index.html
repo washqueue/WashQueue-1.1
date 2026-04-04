@@ -757,10 +757,6 @@
       </form>
 
       <div id="authError" class="auth-error"></div>
-      <div class="auth-note">
-        🫧 Bu sürümde kayıt ve oturum açma ekranı hazır. Gerçekten tüm öğrencilerin ortak kullandığı bir sistem için
-        bunun bir veritabanı servisine bağlanıp yayına alınması gerekir.
-      </div>
     </div>
   </section>
 
@@ -769,7 +765,7 @@
       <div class="panel hero-main">
         <div class="eyebrow">🫧 KYK Ortak Makine Takibi</div>
         <div class="brand-lockup">
-          <div class="brand-badge">🧺</div>
+          <div class="brand-badge">🫧</div>
           <h1 class="brand-title"><span>WashQueue</span></h1>
         </div>
         <p class="hero-copy">
@@ -777,8 +773,8 @@
           Herkes açık takvimi görür, uygun seansı alır ve haftalık hakkını adil şekilde kullanır.
         </p>
         <div class="hero-points">
-          <div class="pill">🧺 3 blok</div>
-          <div class="pill">🫧 Her blokta 10 çamaşır + 10 kurutma</div>
+          <div class="pill">🫧 3 blok</div>
+          <div class="pill">🧺 Her blokta 10 çamaşır + 10 kurutma</div>
           <div class="pill">⏰ 10:00 - 22:00 arası seanslar</div>
           <div class="pill">📌 Haftalık kişi başı 3 yıkama + 3 kurutma</div>
         </div>
@@ -911,7 +907,7 @@
         key: "wash",
         title: "Çamaşır Makineleri",
         short: "Çamaşır",
-        emoji: "🧺",
+        emoji: "🫧",
         machinePrefix: "CM",
         sessions: createTimeSlots("10:00", "22:00", 30),
         options: [
@@ -923,7 +919,7 @@
         key: "dry",
         title: "Kurutma Makineleri",
         short: "Kurutma",
-        emoji: "🫧",
+        emoji: "🧺",
         machinePrefix: "KM",
         sessions: createTimeSlots("10:00", "22:00", 120),
         options: [{ value: "dry", label: "Kurutma", duration: 120 }]
