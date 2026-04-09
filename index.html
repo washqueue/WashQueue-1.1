@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="WashQueue, KYK yurt bloklarındaki çamaşır ve kurutma makineleri için ortak randevu ve sıra takip sistemidir." />
+  <meta name="description" content="Çamaşırhane Randevu Sistemi, KYK yurt bloklarındaki çamaşır ve kurutma makineleri için ortak randevu ve sıra takip sistemidir." />
   <meta name="robots" content="index, follow" />
   <link rel="canonical" href="https://washqueue.github.io/WashQueue-1.1/" />
-  <title>WashQueue | KYK Yurt Çamaşır Planlama</title>
+  <title>Çamaşırhane Randevu Sistemi | KYK Yurt Çamaşır Planlama</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
@@ -736,7 +736,7 @@
       <div class="eyebrow">🌙 Öğrenci Girişi</div>
       <div class="brand-lockup">
         <div class="brand-badge">🫧</div>
-        <h1 class="brand-title"><span>WashQueue</span></h1>
+        <h1 class="brand-title"><span>Çamaşırhane Randevu Sistemi</span></h1>
       </div>
       <p class="hero-copy" style="font-size:17px; margin-top:14px;">
         ✨ Öğrenciler ad soyad ve şifre ile giriş yapar, ardından bloklardaki uygun randevuları alır.
@@ -769,16 +769,16 @@
         <div class="eyebrow">🫧 KYK Ortak Makine Takibi</div>
         <div class="brand-lockup">
           <div class="brand-badge">🫧</div>
-          <h1 class="brand-title"><span>WashQueue</span></h1>
+          <h1 class="brand-title"><span>Çamaşırhane Randevu Sistemi</span></h1>
         </div>
         <p class="hero-copy">
-          💜 B, C ve D bloklarındaki çamaşır ve kurutma makineleri için ortak randevu ekranı.
+          💖 B, C ve D bloklarındaki çamaşır ve kurutma makineleri için ortak randevu ekranı.
           Herkes açık takvimi görür, uygun seansı alır ve haftalık hakkını adil şekilde kullanır.
         </p>
         <div class="hero-points">
           <div class="pill">🫧 3 blok</div>
           <div class="pill">🧺 Her blokta 10 çamaşır + 10 kurutma</div>
-          <div class="pill">⏰ 10:00 - 22:00 arası seanslar</div>
+          <div class="pill">⏰ 09:30 - 23:00 arası seanslar</div>
           <div class="pill">📌 Haftalık kişi başı 3 yıkama + 3 kurutma</div>
         </div>
       </div>
@@ -788,11 +788,11 @@
           Toplam makine sayısı
         </div>
         <div class="mini-stat">
-          <strong>30 dk / 60 dk ⚡</strong>
+          <strong>45 dk / 1 saat 15 dk ⚡</strong>
           Çamaşır için hızlı ve normal seçenekler
         </div>
         <div class="mini-stat">
-          <strong>120 dk 🔥</strong>
+          <strong>2 saat 15 dk 🔥</strong>
           Kurutma seansı süresi
         </div>
       </aside>
@@ -846,9 +846,9 @@
         <div class="info-box">
           <h3 class="section-title">Kurallar</h3>
           <p class="muted" style="margin:0; line-height:1.7;">
-            Çamaşır makinelerinde hızlı yıkama 30 dakika, normal yıkama 60 dakika sürer.
-            Kurutma makineleri 2 saatlik seanslarla çalışır. Bir kullanıcı 7 günlük dönemde en fazla
-            3 çamaşır ve 3 kurutma rezervasyonu yapabilir.
+            Bir kullanıcı 7 günlük dönemde en fazla 3 çamaşır ve 3 kurutma rezervasyonu yapabilir.
+            Hızlı yıkama seansı 30 dakika, normal yıkama seansı 1 saat ve kurutma makinası seansı 2 saattir.
+            Fakat makina doldur-boşalt süresi ve geç kalma durumlarına karşın seansların süreleri revize edilmiştir.
           </p>
         </div>
       </aside>
@@ -905,6 +905,8 @@
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5uYmJlcnVtY2djeXJ0Z2JlYmdkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzMDE2ODcsImV4cCI6MjA5MDg3NzY4N30.DkEYuBdL3Kv2_vXz2l1RbRUPwq3kzRl1yICImB9aPiE";
     const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const BLOCKS = ["B Blok", "C Blok", "D Blok"];
+    const OPENING_TIME = "09:30";
+    const CLOSING_TIME = "23:00";
     const TYPES = {
       wash: {
         key: "wash",
@@ -912,10 +914,10 @@
         short: "Çamaşır",
         emoji: "🫧",
         machinePrefix: "CM",
-        sessions: createTimeSlots("10:00", "22:00", 30),
+        sessions: createTimeSlots(OPENING_TIME, CLOSING_TIME, 45),
         options: [
-          { value: "quick", label: "Hızlı Yıkama", duration: 30 },
-          { value: "normal", label: "Normal Yıkama", duration: 60 }
+          { value: "quick", label: "Hızlı Yıkama", duration: 45 },
+          { value: "normal", label: "Normal Yıkama", duration: 75 }
         ]
       },
       dry: {
@@ -924,8 +926,8 @@
         short: "Kurutma",
         emoji: "🧺",
         machinePrefix: "KM",
-        sessions: createTimeSlots("10:00", "22:00", 120),
-        options: [{ value: "dry", label: "Kurutma", duration: 120 }]
+        sessions: createTimeSlots(OPENING_TIME, CLOSING_TIME, 135),
+        options: [{ value: "dry", label: "Kurutma", duration: 135 }]
       }
     };
 
@@ -1285,7 +1287,7 @@
             availableOptions.forEach((option) => {
               const optionEl = document.createElement("option");
               optionEl.value = option.value;
-              optionEl.textContent = `${option.label} (${option.duration} dk)`;
+              optionEl.textContent = `${option.label} (${formatDuration(option.duration)})`;
               select.appendChild(optionEl);
             });
 
@@ -1372,6 +1374,11 @@
       }
 
       const selectedOption = TYPES[state.type].options.find((item) => item.value === optionValue);
+
+      if (endsAfterClosing(slotTime, selectedOption.duration)) {
+        showNotice("Seçtiğin program çamaşırhane kapanış saati olan 23:00 sonrasına taşıyor.");
+        return;
+      }
 
       if (findConflictingReservation(machine.id, els.selectedDate.value, slotTime, addMinutes(slotTime, selectedOption.duration))) {
         showNotice("Bu makine seçtiğin saat aralığında zaten dolu.");
@@ -1480,8 +1487,22 @@
     function getAvailableOptions(machineId, date, slotTime, options) {
       if (isPastSlot(date, slotTime)) return [];
       return options.filter((option) =>
+        !endsAfterClosing(slotTime, option.duration) &&
         !findConflictingReservation(machineId, date, slotTime, addMinutes(slotTime, option.duration))
       );
+    }
+
+    function endsAfterClosing(startTime, duration) {
+      return toMinutes(addMinutes(startTime, duration)) > toMinutes(CLOSING_TIME);
+    }
+
+    function formatDuration(duration) {
+      const hours = Math.floor(duration / 60);
+      const minutes = duration % 60;
+
+      if (!hours) return `${minutes} dakika`;
+      if (!minutes) return `${hours} saat`;
+      return `${hours} saat ${minutes} dakika`;
     }
 
     function getCurrentUser() {
@@ -1620,11 +1641,11 @@
       return bytes;
     }
 
-    function createTimeSlots(start, end, step) {
+    function createTimeSlots(start, end, step, duration = step) {
       const times = [];
       let current = toMinutes(start);
       const finish = toMinutes(end);
-      while (current < finish) {
+      while (current + duration <= finish) {
         times.push(fromMinutes(current));
         current += step;
       }
@@ -1692,4 +1713,6 @@
   </script>
 </body>
 </html>
+
+
 
