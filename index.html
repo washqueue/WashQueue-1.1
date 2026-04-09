@@ -1014,21 +1014,31 @@
         render();
       });
 
-      els.clearMine.addEventListener("click", () => {
+      els.clearMine.addEventListener("click", async () => {
         const currentUser = getCurrentUser();
-        if (!currentUser) {
+        const currentUserId = state.session?.id;
+        if (!currentUser || !currentUserId) {
           showNotice("Önce ad soyad girmen gerekiyor.");
           return;
         }
 
-        const before = state.reservations.length;
-        state.reservations = state.reservations.filter((item) => item.user !== currentUser);
-        if (before === state.reservations.length) {
+        const mine = state.reservations.filter((item) => item.user_id === currentUserId);
+        if (!mine.length) {
           showNotice("Silinecek bir randevu bulunamadı.");
           return;
         }
 
-        syncReservations();
+        const { error } = await supabaseClient
+          .from("reservations")
+          .delete()
+          .eq("user_id", currentUserId);
+
+        if (error) {
+          showNotice(`Randevular silinemedi: ${error.message}`);
+          return;
+        }
+
+        await fetchReservations();
         showNotice("Sana ait tüm randevular temizlendi.", false);
         render();
       });
